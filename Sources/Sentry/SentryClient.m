@@ -16,6 +16,7 @@
 #import "SentrySDK.h"
 #import "SentryScope.h"
 #import "SentrySession.h"
+#import "SentryStacktraceBuilder.h"
 #import "SentryTransport.h"
 #import "SentryTransportFactory.h"
 #import "SentryUser.h"
@@ -76,7 +77,8 @@ SentryClient ()
                             withScope:(SentryScope *_Nullable)scope
 {
     SentryEvent *event = [[SentryEvent alloc] initWithLevel:kSentryLevelInfo];
-    // TODO: Attach stacktrace?
+    event.stacktrace =
+        [SentryStacktraceBuilder buildStacktraceForCurrentThread];
     event.message = message;
     return [self captureEvent:event withScope:scope];
 }

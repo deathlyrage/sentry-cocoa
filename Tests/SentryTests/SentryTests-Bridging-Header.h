@@ -21,5 +21,6 @@
 #import "SentryRateLimits.h"
 #import "SentryRetryAfterHeaderParser.h"
 #import "SentrySessionTracker.h"
+#import "SentryStacktraceBuilder.h"
 #import "SentryTransport.h"
 #import "SentryTransportFactory.h"
