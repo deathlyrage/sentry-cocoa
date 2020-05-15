@@ -1,3 +1,4 @@
+#include <execinfo.h>
 #import "SentryStacktraceBuilder.h"
 #import "SentryFrame.h"
 #import "SentryStacktrace.h"
@@ -9,6 +10,22 @@
 + (SentryStacktrace *)buildStacktraceForCurrentThread
 {
     NSArray<NSString *> *callStackSymbols = [NSThread callStackSymbols];
+    [NSThread callStackReturnAddresses];
+    
+    void *array[10];
+    size_t size;
+    char **strings;
+    size_t i;
+    
+    size = backtrace (array, 10);
+    strings = backtrace_symbols (array, size);
+    
+    printf ("Obtained %zd stack frames.\n", size);
+
+    for (i = 0; i < size; i++)
+       printf ("%s\n", strings[i]);
+
+    free (strings);
 
     NSMutableArray<SentryFrame *> *frames = [NSMutableArray new];
     for (NSString *callStackSymbol in
@@ -17,7 +34,6 @@
     }
 
     return [[SentryStacktrace alloc] initWithFrames:frames registers:@{}];
-    ;
 }
 
 // 0   Sentry                              0x0000000107956a82
