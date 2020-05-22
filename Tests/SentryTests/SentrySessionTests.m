@@ -34,8 +34,7 @@
     XCTAssertEqual(expected.sequence, actual.sequence);
     XCTAssertEqual(expected.errors, actual.errors);
     // TODO: get XCT happy XCTAssertEqual(expected.init, actual.init);
-    XCTAssertEqualWithAccuracy(
-        [expected.started timeIntervalSinceReferenceDate],
+    XCTAssertEqualWithAccuracy([expected.started timeIntervalSinceReferenceDate],
         [actual.started timeIntervalSinceReferenceDate], 1);
     XCTAssertEqual(expected.status, actual.status);
     XCTAssertEqual(expected.distinctId, actual.distinctId);
@@ -54,7 +53,7 @@
 {
     SentrySession *expected = [[SentrySession alloc] init];
     NSDate *timestamp = [NSDate date];
-    [expected endSessionExitedSessionWithTimestamp:timestamp];
+    [expected endSessionExitedWithTimestamp:timestamp];
     expected.environment = @"prod";
     expected.releaseName = @"io.sentry@5.0.0-test";
     NSDictionary<NSString *, id> *json = [expected serialize];
@@ -64,13 +63,11 @@
     XCTAssertEqual(expected.sequence, actual.sequence);
     XCTAssertEqual(expected.errors, actual.errors);
     // TODO: get XCT happy XCTAssertEqual(expected.init, actual.init);
-    XCTAssertEqualWithAccuracy(
-        [expected.started timeIntervalSinceReferenceDate],
+    XCTAssertEqualWithAccuracy([expected.started timeIntervalSinceReferenceDate],
         [actual.started timeIntervalSinceReferenceDate], 1);
     XCTAssertEqualWithAccuracy([timestamp timeIntervalSinceReferenceDate],
         [expected.timestamp timeIntervalSinceReferenceDate], 1);
-    XCTAssertEqualWithAccuracy(
-        [expected.timestamp timeIntervalSinceReferenceDate],
+    XCTAssertEqualWithAccuracy([expected.timestamp timeIntervalSinceReferenceDate],
         [actual.timestamp timeIntervalSinceReferenceDate], 1);
     XCTAssertEqual(expected.status, actual.status);
     XCTAssertEqual(expected.distinctId, actual.distinctId);
@@ -83,7 +80,7 @@
 {
     SentrySession *expected = [[SentrySession alloc] init];
     [expected incrementErrors];
-    [expected endSessionExitedSessionWithTimestamp:[NSDate date]];
+    [expected endSessionExitedWithTimestamp:[NSDate date]];
     NSDictionary<NSString *, id> *json = [expected serialize];
     SentrySession *actual = [[SentrySession alloc] initWithJSONObject:json];
 
@@ -91,11 +88,9 @@
     XCTAssertEqual(expected.sequence, actual.sequence);
     XCTAssertEqual(expected.errors, actual.errors);
     // TODO: get XCT happy XCTAssertEqual(expected.init, actual.init);
-    XCTAssertEqualWithAccuracy(
-        [expected.started timeIntervalSinceReferenceDate],
+    XCTAssertEqualWithAccuracy([expected.started timeIntervalSinceReferenceDate],
         [actual.started timeIntervalSinceReferenceDate], 1);
-    XCTAssertEqualWithAccuracy(
-        [expected.timestamp timeIntervalSinceReferenceDate],
+    XCTAssertEqualWithAccuracy([expected.timestamp timeIntervalSinceReferenceDate],
         [actual.timestamp timeIntervalSinceReferenceDate], 1);
     XCTAssertEqual(expected.status, actual.status);
     XCTAssertEqual(expected.distinctId, actual.distinctId);
@@ -136,7 +131,7 @@
     XCTAssertEqual(0, expected.errors);
     XCTAssertEqual(kSentrySessionStatusOk, expected.status);
     XCTAssertEqual(1, expected.sequence);
-    [expected endSessionExitedSessionWithTimestamp:[NSDate date]];
+    [expected endSessionExitedWithTimestamp:[NSDate date]];
     XCTAssertEqual(0, expected.errors);
     XCTAssertEqual(kSentrySessionStatusExited, expected.status);
     XCTAssertEqual(2, expected.sequence);

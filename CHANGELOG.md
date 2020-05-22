@@ -2,6 +2,19 @@
 
 ## unreleased
 
+## 5.0.5
+
+- feat: Add remove methods for SentryScope #529
+- fix: Failing MacOS build #530
+- ref: Session values are unsigned #527
+
+## 5.0.4
+
+- fix: End file at the right place with #ifdef #521
+
+## 5.0.3
+
+- fix: Exit session with timestamp #518
 - feat: Add sentry_sanitize for NSArray #509
 
 ## 5.0.2

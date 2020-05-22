@@ -40,9 +40,7 @@ SentryHub ()
     SentryOptions *options = [client options];
     if (nil == options || nil == options.releaseName) {
         [SentryLog
-            logWithMessage:[NSString
-                               stringWithFormat:
-                                   @"No option or release to start a session."]
+            logWithMessage:[NSString stringWithFormat:@"No option or release to start a session."]
                   andLevel:kSentryLogLevelError];
         return;
     }
@@ -58,7 +56,7 @@ SentryHub ()
         // TODO: Capture outside the lock. Not the reference in the scope.
         [self captureSession:_session];
     }
-    [lastSession endSessionExitedSessionWithTimestamp:[NSDate date]];
+    [lastSession endSessionExitedWithTimestamp:[NSDate date]];
     [self captureSession:lastSession];
 }
 
@@ -72,14 +70,12 @@ SentryHub ()
     }
 
     if (nil == currentSession) {
-        [SentryLog
-            logWithMessage:
-                [NSString stringWithFormat:@"No session to end with timestamp."]
-                  andLevel:kSentryLogLevelDebug];
+        [SentryLog logWithMessage:[NSString stringWithFormat:@"No session to end with timestamp."]
+                         andLevel:kSentryLogLevelDebug];
         return;
     }
 
-    [currentSession endSessionExitedSessionWithTimestamp:timestamp];
+    [currentSession endSessionExitedWithTimestamp:timestamp];
     [self captureSession:currentSession];
 }
 
@@ -93,44 +89,49 @@ SentryHub ()
     [[[self getClient] fileManager] deleteCurrentSession];
 }
 
-- (void)closeCachedSession
+- (void)closeCachedSessionWithTimestamp:(NSDate *_Nullable)timestamp
 {
     SentryFileManager *fileManager = [[self getClient] fileManager];
     SentrySession *session = [fileManager readCurrentSession];
-    if (nil != session) {
-        [SentryLog logWithMessage:@"A cached session was found."
-                         andLevel:kSentryLogLevelDebug];
-        SentryClient *client = [self getClient];
-        if (nil != session
-            && nil != client) { // Make sure there's a client bound.
-            if (SentryCrash.sharedInstance.crashedLastLaunch) {
-                NSDate *lastInForeground =
-                    [[NSDate date] dateByAddingTimeInterval:
-                                       -SentryCrash.sharedInstance
-                                            .activeDurationSinceLastCrash];
-                [SentryLog
-                    logWithMessage:[NSString
-                                       stringWithFormat:@"Closing cached "
-                                                        @"session as crashed."]
-                          andLevel:kSentryLogLevelDebug];
-                [session endSessionCrashedWithTimestamp:lastInForeground];
-            } else {
-                [SentryLog
-                    logWithMessage:[NSString
-                                       stringWithFormat:@"Closing cached "
-                                                        @"session as abnormal."]
-                          andLevel:kSentryLogLevelDebug];
-                [session endSessionAbnormalWithTimestamp:session.timestamp];
-            }
-            [self deleteCurrentSession];
-            [client captureSession:session];
-        }
-    } else {
-        [SentryLog
-            logWithMessage:[NSString
-                               stringWithFormat:@"No cached session to close."]
-                  andLevel:kSentryLogLevelDebug];
+    if (nil == session) {
+        [SentryLog logWithMessage:@"No cached session to close." andLevel:kSentryLogLevelDebug];
+        return;
     }
+    [SentryLog logWithMessage:@"A cached session was found." andLevel:kSentryLogLevelDebug];
+
+    // Make sure there's a client bound.
+    SentryClient *client = [self getClient];
+    if (nil == client) {
+        [SentryLog logWithMessage:@"No client bound." andLevel:kSentryLogLevelDebug];
+        return;
+    }
+
+    if (SentryCrash.sharedInstance.crashedLastLaunch) {
+        NSDate *timeSinceLastCrash = [[NSDate date]
+            dateByAddingTimeInterval:-SentryCrash.sharedInstance.activeDurationSinceLastCrash];
+
+        [SentryLog logWithMessage:@"Closing cached session as crashed."
+                         andLevel:kSentryLogLevelDebug];
+
+        [session endSessionCrashedWithTimestamp:timeSinceLastCrash];
+    } else {
+        if (nil == timestamp) {
+            [SentryLog
+                logWithMessage:[NSString stringWithFormat:@"No timestamp to close session "
+                                                          @"was provided. Closing as abnormal. "
+                                                           "Using session's start time %@",
+                                         session.started]
+                      andLevel:kSentryLogLevelDebug];
+            timestamp = session.started;
+            [session endSessionAbnormalWithTimestamp:timestamp];
+        } else {
+            [SentryLog logWithMessage:@"Closing cached session as exited."
+                             andLevel:kSentryLogLevelDebug];
+            [session endSessionExitedWithTimestamp:timestamp];
+        }
+    }
+    [self deleteCurrentSession];
+    [client captureSession:session];
 }
 
 - (void)captureSession:(SentrySession *)session
@@ -139,18 +140,14 @@ SentryHub ()
         SentryClient *client = [self getClient];
 
         if (SentrySDK.logLevel == kSentryLogLevelVerbose) {
-            NSData *sessionData =
-                [NSJSONSerialization dataWithJSONObject:[session serialize]
-                                                options:0
-                                                  error:nil];
-            NSString *sessionString =
-                [[NSString alloc] initWithData:sessionData
-                                      encoding:NSUTF8StringEncoding];
+            NSData *sessionData = [NSJSONSerialization dataWithJSONObject:[session serialize]
+                                                                  options:0
+                                                                    error:nil];
+            NSString *sessionString = [[NSString alloc] initWithData:sessionData
+                                                            encoding:NSUTF8StringEncoding];
             [SentryLog
-                logWithMessage:
-                    [NSString
-                        stringWithFormat:@"Capturing session with status: %@",
-                        sessionString]
+                logWithMessage:[NSString stringWithFormat:@"Capturing session with status: %@",
+                                         sessionString]
                       andLevel:kSentryLogLevelDebug];
         }
         [client captureSession:session];
@@ -167,8 +164,7 @@ SentryHub ()
     }
 }
 
-- (NSString *_Nullable)captureEvent:(SentryEvent *)event
-                          withScope:(SentryScope *_Nullable)scope
+- (NSString *_Nullable)captureEvent:(SentryEvent *)event withScope:(SentryScope *_Nullable)scope
 {
     SentryClient *client = [self getClient];
     if (nil != client) {
@@ -177,8 +173,7 @@ SentryHub ()
     return nil;
 }
 
-- (NSString *_Nullable)captureMessage:(NSString *)message
-                            withScope:(SentryScope *_Nullable)scope
+- (NSString *_Nullable)captureMessage:(NSString *)message withScope:(SentryScope *_Nullable)scope
 {
     SentryClient *client = [self getClient];
     if (nil != client) {
@@ -187,8 +182,7 @@ SentryHub ()
     return nil;
 }
 
-- (NSString *_Nullable)captureError:(NSError *)error
-                          withScope:(SentryScope *_Nullable)scope
+- (NSString *_Nullable)captureError:(NSError *)error withScope:(SentryScope *_Nullable)scope
 {
     [self incrementSessionErrors];
     SentryClient *client = [self getClient];
@@ -211,16 +205,14 @@ SentryHub ()
 
 - (void)addBreadcrumb:(SentryBreadcrumb *)crumb
 {
-    SentryBeforeBreadcrumbCallback callback =
-        [[[self client] options] beforeBreadcrumb];
+    SentryBeforeBreadcrumbCallback callback = [[[self client] options] beforeBreadcrumb];
     if (nil != callback) {
         crumb = callback(crumb);
     }
     if (nil == crumb) {
-        [SentryLog
-            logWithMessage:[NSString stringWithFormat:@"Discarded Breadcrumb "
-                                                      @"in `beforeBreadcrumb`"]
-                  andLevel:kSentryLogLevelDebug];
+        [SentryLog logWithMessage:[NSString stringWithFormat:@"Discarded Breadcrumb "
+                                                             @"in `beforeBreadcrumb`"]
+                         andLevel:kSentryLogLevelDebug];
         return;
     }
     [[self getScope] addBreadcrumb:crumb];
@@ -237,8 +229,8 @@ SentryHub ()
         if (self.scope == nil) {
             SentryClient *client = [self getClient];
             if (nil != client) {
-                self.scope = [[SentryScope alloc]
-                    initWithMaxBreadcrumbs:client.options.maxBreadcrumbs];
+                self.scope =
+                    [[SentryScope alloc] initWithMaxBreadcrumbs:client.options.maxBreadcrumbs];
             } else {
                 self.scope = [[SentryScope alloc] init];
             }
@@ -268,8 +260,7 @@ SentryHub ()
  */
 - (BOOL)isIntegrationInstalled:(Class)integrationClass
 {
-    for (id<SentryIntegrationProtocol> item in SentrySDK.currentHub
-             .installedIntegrations) {
+    for (id<SentryIntegrationProtocol> item in SentrySDK.currentHub.installedIntegrations) {
         if ([item isKindOfClass:integrationClass]) {
             return YES;
         }
@@ -283,8 +274,7 @@ SentryHub ()
     if (![integrations containsObject:integrationName]) {
         return nil;
     }
-    return [integrations
-        objectAtIndex:[integrations indexOfObject:integrationName]];
+    return [integrations objectAtIndex:[integrations indexOfObject:integrationName]];
 }
 
 /**

@@ -1,15 +1,15 @@
-import XCTest
 @testable import Sentry.SentryClient
 @testable import Sentry.SentryOptions
+import XCTest
 
 class SentryFileManagerTests: XCTestCase {
     
-    private var sut : SentryFileManager!
+    private var sut: SentryFileManager!
     
     override func setUp() {
         super.setUp()
         do {
-            sut = try SentryFileManager.init(dsn: TestConstants.dsn)
+            sut = try SentryFileManager(dsn: TestConstants.dsn)
         } catch {
             XCTFail("SentryFileManager could not be created")
         }
@@ -19,19 +19,22 @@ class SentryFileManagerTests: XCTestCase {
         super.tearDown()
         sut.deleteAllStoredEventsAndEnvelopes()
         sut.deleteAllFolders()
+        sut.deleteTimestampLastInForeground()
     }
     
     func testInitDoesNotOverrideDirectories() throws {
         sut.store(Event())
         sut.store(TestConstants.envelope)
         sut.storeCurrentSession(SentrySession())
-        
-        _ = try SentryFileManager.init(dsn: TestConstants.dsn)
-        let fileManager = try SentryFileManager.init(dsn: TestConstants.dsn)
+        sut.storeTimestampLast(inForeground: Date())
+
+        _ = try SentryFileManager(dsn: TestConstants.dsn)
+        let fileManager = try SentryFileManager(dsn: TestConstants.dsn)
         
         XCTAssertEqual(1, fileManager.getAllEventsAndMaybeEnvelopes().count)
         XCTAssertEqual(1, fileManager.getAllEnvelopes().count)
         XCTAssertNotNil(fileManager.readCurrentSession())
+        XCTAssertNotNil(fileManager.readTimestampLastInForeground())
     }
     
     func testEventStoring() throws {
@@ -42,8 +45,11 @@ class SentryFileManagerTests: XCTestCase {
         let events = sut.getAllEventsAndMaybeEnvelopes()
         XCTAssertTrue(events.count == 1)
         XCTAssertEqual(0, sut.getAllEnvelopes().count)
-        
-        let actualDict = try JSONSerialization.jsonObject(with: events[0].contents! as Data) as! Dictionary<String, Any>
+
+        // swiftlint:disable force_cast
+        // swiftlint:disable force_unwrapping
+        let actualDict = try JSONSerialization.jsonObject(with: events[0].contents! as Data) as! [String: Any]
+        // swiftlint:enable force_unwrapping
         
         let eventDict = event.serialize()
         XCTAssertEqual(eventDict.count, actualDict.count)
@@ -52,10 +58,11 @@ class SentryFileManagerTests: XCTestCase {
         XCTAssertEqual(eventDict["event_id"] as! String, actualDict["event_id"] as! String)
         XCTAssertEqual(eventDict["level"] as! String, actualDict["level"] as! String)
         XCTAssertEqual(eventDict["platform"] as! String, actualDict["platform"] as! String)
+        // swiftlint:enable force_cast
     }
     
     func testEventDataStoring() throws {
-        let jsonData : Data = try JSONSerialization.data(withJSONObject: ["id", "1234"])
+        let jsonData: Data = try JSONSerialization.data(withJSONObject: ["id", "1234"])
         
         let event = Event(json: jsonData)
         sut.store(event)
@@ -73,27 +80,27 @@ class SentryFileManagerTests: XCTestCase {
         let envelopes = sut.getAllEnvelopes()
         XCTAssertEqual(1, envelopes.count)
         
-        let actualData = envelopes[0].contents! as Data
-        XCTAssertEqual(expectedData, actualData)
+        let actualData = envelopes[0].contents ?? NSData()
+        XCTAssertEqual(expectedData, actualData as Data)
     }
     
-    func testCreateDirDoesnotThrow() throws {
+    func testCreateDirDoesNotThrow() throws {
         try SentryFileManager.createDirectory(atPath: "a")
     }
     
     func testAllFilesInFolder() {
         let files = sut.allFiles(inFolder: "x")
-        XCTAssertTrue(files.count == 0)
+        XCTAssertTrue(files.isEmpty)
     }
     
-    func testDeleteFileNotExsists() {
+    func testDeleteFileNotExists() {
         XCTAssertFalse(sut.removeFile(atPath: "x"))
     }
     
     func testFailingStoreDictionary() {
         sut.store(["date": Date() ], toPath: "")
         let files = sut.allFiles(inFolder: "x")
-        XCTAssertTrue(files.count == 0)
+        XCTAssertTrue(files.isEmpty)
     }
     
     func testDefaultMaxEvents() {
@@ -138,12 +145,26 @@ class SentryFileManagerTests: XCTestCase {
         let actualSession = sut.readCurrentSession()
         XCTAssertTrue(expectedSession.distinctId == actualSession?.distinctId)
     }
-    
+
     func testStoreDeleteCurrentSession() {
         sut.storeCurrentSession(SentrySession())
         sut.deleteCurrentSession()
         let actualSession = sut.readCurrentSession()
         XCTAssertNil(actualSession)
+    }
+
+    func testStoreAndReadTimestampLastInForeground() {
+        let expectedTimestamp = TestCurrentDateProvider().date()
+        sut.storeTimestampLast(inForeground: expectedTimestamp)
+        let actualTimestamp = sut.readTimestampLastInForeground()
+        XCTAssertEqual(actualTimestamp, expectedTimestamp)
+    }
+
+    func testStoreDeleteTimestampLastInForeground() {
+        sut.storeTimestampLast(inForeground: Date())
+        sut.deleteTimestampLastInForeground()
+        let actualTimestamp = sut.readTimestampLastInForeground()
+        XCTAssertNil(actualTimestamp)
     }
     
     func testGetAllStoredEventsAndEnvelopes() {

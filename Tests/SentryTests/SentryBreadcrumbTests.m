@@ -1,11 +1,3 @@
-//
-//  SentryBreadcrumbTests.m
-//  Sentry
-//
-//  Created by Daniel Griesser on 22/05/2017.
-//  Copyright © 2017 Sentry. All rights reserved.
-//
-
 #import "NSDate+SentryExtras.h"
 #import "SentryDsn.h"
 #import "SentryFileManager.h"
@@ -25,11 +17,9 @@
     [super setUp];
     NSError *error = nil;
     self.fileManager = [[SentryFileManager alloc]
-             initWithDsn:
-                 [[SentryDsn alloc]
-                       initWithString:
-                           @"https://username:password@app.getsentry.com/12345"
-                     didFailWithError:nil]
+             initWithDsn:[[SentryDsn alloc]
+                               initWithString:@"https://username:password@app.getsentry.com/12345"
+                             didFailWithError:nil]
         didFailWithError:&error];
     XCTAssertNil(error);
 }
@@ -170,8 +160,7 @@
 
 - (SentryBreadcrumb *)getBreadcrumb
 {
-    return [[SentryBreadcrumb alloc] initWithLevel:kSentryLevelDebug
-                                          category:@"http"];
+    return [[SentryBreadcrumb alloc] initWithLevel:kSentryLevelDebug category:@"http"];
 }
 
 @end
