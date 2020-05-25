@@ -83,6 +83,7 @@ SentryClient ()
 {
     SentryEvent *event = [[SentryEvent alloc] initWithLevel:kSentryLevelError];
     // TODO: Capture Stacktrace
+    
     event.message = exception.reason;
     return [self captureEvent:event withScope:scope];
 }

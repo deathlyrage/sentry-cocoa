@@ -3,44 +3,102 @@
 #import "SentryFrame.h"
 #import "SentryStacktrace.h"
 #import "SentryThread.h"
+#import "SentryCrashThread.h"
+#import "SentryCrashMachineContext.h"
+#import "SentryCrashMonitorContext.h"
+#import "SentryCrashDynamicLinker.h"
+#import "SentryCrashStackCursor.h"
+#import "SentryCrashCachedData.h"
+#import "SentryCrashCPU.h"
+#import "SentryCrashStackCursor_SelfThread.h"
 #import <Foundation/Foundation.h>
+
+#define kStackContentsPushedDistance 20
+#define kStackContentsPoppedDistance 10
 
 @implementation SentryStacktraceBuilder
 
-+ (SentryStacktrace *)buildStacktraceForCurrentThread
-{
-    NSArray<NSString *> *callStackSymbols = [NSThread callStackSymbols];
-    [NSThread callStackReturnAddresses];
-    
-    void *array[10];
-    size_t size;
-    char **strings;
-    size_t i;
-    
-    size = backtrace (array, 10);
-    strings = backtrace_symbols (array, size);
-    
-    printf ("Obtained %zd stack frames.\n", size);
-
-    for (i = 0; i < size; i++)
-       printf ("%s\n", strings[i]);
-
-    free (strings);
-
++ (SentryStacktrace *)buildStacktraceForCurrentThread {
     NSMutableArray<SentryFrame *> *frames = [NSMutableArray new];
-    for (NSString *callStackSymbol in
-        [callStackSymbols reverseObjectEnumerator]) {
-        [frames addObject:[self fillFrame:callStackSymbol]];
+
+    const int imageCount = sentrycrashdl_imageCount();
+    for (int iImg = 0; iImg < imageCount; iImg++) {
+        SentryCrashBinaryImage image = {0};
+        sentrycrashdl_getBinaryImage(iImg, &image);
+        image.address;
+
+        SentryFrame *frame = [[SentryFrame alloc] init];
+
+
     }
 
-    return [[SentryStacktrace alloc] initWithFrames:frames registers:@{}];
+    SentryCrashMC_NEW_CONTEXT(baseThreadContext);
+    sentrycrashmc_getContextForThread(
+            sentrycrashthread_self(), baseThreadContext, true);
+    int threadCount = sentrycrashmc_getThreadCount(baseThreadContext);
+
+    SentryCrashMC_NEW_CONTEXT(iteratingContext);
+    for (int i = 0; i < threadCount; i++) {
+        SentryCrashThread thread
+                = sentrycrashmc_getThreadAtIndex(baseThreadContext, i);
+
+        sentrycrashmc_getContextForThread(
+                thread, iteratingContext, true);
+
+        const char *threadName = sentrycrashccd_getThreadName(thread);
+        const char *queueName = sentrycrashccd_getQueueName(thread);
+
+        SentryCrashStackCursor *stackCursor;
+        sentrycrashsc_initSelfThread(stackCursor, 0);
+
+        while (stackCursor->advanceCursor(stackCursor)) {
+
+            if (stackCursor->symbolicate(stackCursor)) {
+                if (stackCursor->stackEntry.imageName != NULL) {
+                    stackCursor->stackEntry.imageName;
+                }
+                stackCursor->stackEntry.imageAddress;
+                if (stackCursor->stackEntry.symbolName != NULL) {
+                    stackCursor->stackEntry.symbolName;
+                }
+                stackCursor->stackEntry.symbolAddress;
+            }
+
+            stackCursor->stackEntry.address;
+        }
+
+
+        uintptr_t sp = sentrycrashcpu_stackPointer(iteratingContext);
+        if ((void *) sp == NULL) {
+            continue;
+        }
+
+        uintptr_t lowAddress = sp
+                + (uintptr_t) (kStackContentsPushedDistance * (int) sizeof(sp)
+                * sentrycrashcpu_stackGrowDirection() * -1);
+        uintptr_t highAddress = sp
+                + (uintptr_t) (kStackContentsPoppedDistance * (int) sizeof(sp)
+                * sentrycrashcpu_stackGrowDirection());
+        if (highAddress < lowAddress) {
+            uintptr_t tmp = lowAddress;
+            lowAddress = highAddress;
+            highAddress = tmp;
+        }
+
+        int oo = 20;
+    }
+
+
+    return [[
+            SentryStacktrace alloc
+    ] initWithFrames:@[] registers:@{
+    }];
 }
 
 // 0   Sentry                              0x0000000107956a82
 // +[SentryStacktraceBuilder buildStacktraceForCurrentThread] + 82 1 SentryTests
 // 0x000000010772eb50 $s11SentryTests0a7ThreadsB0C11testExampleyyF + 64,
-+ (SentryFrame *)fillFrame:(NSString *)symbol
-{
++ (SentryFrame *)fillFrame:(NSString *)symbol {
 
     SentryFrame *frame = [[SentryFrame alloc] init];
     frame.package = [symbol substringWithRange:NSMakeRange(4, 35)];
@@ -52,7 +110,7 @@
         frame.function = [functionInfo substringToIndex:range.location - 1];
 
         NSString *lineNumber =
-            [functionInfo substringFromIndex:range.location + 2];
+                [functionInfo substringFromIndex:range.location + 2];
         frame.lineNumber = [NSNumber numberWithInt:[lineNumber integerValue]];
     } else {
         frame.function = functionInfo;
