@@ -2,6 +2,13 @@
 
 ## unreleased
 
+## 5.1.0
+
+- fix: Make properties of Session readonly #541
+- fix: Remove MemoryWarningIntegration #537
+- fix: Avoid Implicit conversion in SentrySession #540
+- fix: Change SentryScope setTagValue to NSString #524
+
 ## 5.0.5
 
 - feat: Add remove methods for SentryScope #529
